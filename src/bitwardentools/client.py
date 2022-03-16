@@ -681,6 +681,7 @@ class Client(object):
         admin_password=ADMIN_PASSWORD,
         private_key=PRIVATE_KEY,
         client_id="python",
+        client_secret=None,
         client_uuid=CUUID,
         login=True,
         cache=None,
@@ -690,12 +691,13 @@ class Client(object):
         # but also if we want totally isolated caches
         if cache is None:
             cache = CACHE
-        if not email:
-            raise RunError("no email")
         if not server:
             raise RunError("no server")
-        if not password:
-            raise RunError("no password")
+        if not client_secret:
+            if not email:
+                raise RunError("no email, and no secret")
+            if not password:
+                raise RunError("no password")
         self.admin_user = admin_user
         self.admin_password = admin_password
         self._broken_ciphers = OrderedDict()
@@ -708,9 +710,10 @@ class Client(object):
             if hasattr(self.private_key, "encode"):
                 self.private_key = b64decode(self.private_key)
         self.password = password
-        self.email = email.lower()
+        self.email = email.lower() if email else email
         self.sessions = OrderedDict()
         self.client_id = client_id
+        self.client_secret = client_secret
         self.client_uuid = client_uuid
         self.templates = {}
         self._cache = cache
@@ -808,6 +811,11 @@ class Client(object):
             "deviceIdentifier": self.client_uuid,
             "deviceName": "pyinviter",
         }
+        if self.client_secret:
+            loginpayload["client_secret"] = self.client_secret
+            loginpayload["grant_type"] = "client_credentials"
+            loginpayload["scope"] = "api"
+            
         data = self.r("/identity/connect/token", token=False, data=loginpayload)
         if not data.status_code == 200:
             exc = LoginError(f"Failed login for {email}")
